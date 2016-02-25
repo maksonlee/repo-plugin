@@ -102,6 +102,7 @@ public class RepoScm extends SCM implements Serializable {
 	@CheckForNull private boolean showAllChanges;
 	@CheckForNull private boolean noTags;
 	@CheckForNull private Set<String> ignoreProjects;
+	@CheckForNull private String customGitConfig;
 
 	/**
 	 * Returns the manifest repository URL.
@@ -149,6 +150,11 @@ public class RepoScm extends SCM implements Serializable {
 		// now merge the settings from the last build environment
 		if (environment != null) {
 			finalEnv.overrideAll(environment);
+		}
+
+		if (customGitConfig != null) {
+			finalEnv.override("XDG_CONFIG_HOME",
+					finalEnv.get("WORKSPACE") + "/.config");
 		}
 
 		EnvVars.resolve(finalEnv);
@@ -275,6 +281,11 @@ public class RepoScm extends SCM implements Serializable {
 	 */
 	@Exported
 	public boolean isNoTags() { return noTags; }
+	/**
+	 * Returns the value of customGitConfig.
+	 */
+	@Exported
+	public String getcustomGitConfig() { return customGitConfig; }
 
 	/**
 	 * The constructor takes in user parameters and sets them. Each job using
@@ -313,6 +324,8 @@ public class RepoScm extends SCM implements Serializable {
 	 *                              executing "repo init" and "repo sync".
 	 * @param showAllChanges        If this value is true, add the "--first-parent" option to
 	 *                              "git log" when determining changesets.
+	 * @param customGitConfig       A string contains lines, and each line is consist of
+	 *                              a git config name value set.
 	 *
 	 */
 	@Deprecated
@@ -326,7 +339,8 @@ public class RepoScm extends SCM implements Serializable {
 				   final boolean resetFirst,
 				   final boolean quiet,
 				   final boolean trace,
-				   final boolean showAllChanges) {
+				   final boolean showAllChanges,
+				   final String customGitConfig) {
 		this(manifestRepositoryUrl);
 		setManifestBranch(manifestBranch);
 		setManifestGroup(manifestGroup);
@@ -342,7 +356,7 @@ public class RepoScm extends SCM implements Serializable {
 		setTrace(trace);
 		setShowAllChanges(showAllChanges);
 		setRepoUrl(repoUrl);
-		ignoreProjects = Collections.<String>emptySet();
+		setCustomGitConfig(customGitConfig);
 	}
 
 	/**
@@ -371,6 +385,7 @@ public class RepoScm extends SCM implements Serializable {
 		showAllChanges = false;
 		noTags = false;
 		ignoreProjects = Collections.<String>emptySet();
+		customGitConfig = null;
 	}
 
 	/**
@@ -586,6 +601,18 @@ public class RepoScm extends SCM implements Serializable {
 				Arrays.asList(ignoreProjects.split("\\s+")));
 	}
 
+	/**
+	 * Set customGitConfig.
+	 *
+	 * @param customGitConfig
+	 *            A string contains lines, and each line is consist of
+	 *            a git config name value set.
+	 */
+	@DataBoundSetter
+	public final void setCustomGitConfig(final String customGitConfig) {
+		this.customGitConfig = customGitConfig;
+	}
+
 	@Override
 	public SCMRevisionState calcRevisionsFromBuild(
 			@Nonnull final Run<?, ?> build, @Nullable final FilePath workspace,
@@ -769,6 +796,8 @@ public class RepoScm extends SCM implements Serializable {
 			final EnvVars env,
 			final OutputStream logger)
 			throws IOException, InterruptedException {
+		customGitConfig(launcher, workspace, env, logger);
+
 		final List<String> commands = new ArrayList<String>(4);
 
 		debug.log(Level.INFO, "Checking out code in: " + workspace.getName());
@@ -888,6 +917,37 @@ public class RepoScm extends SCM implements Serializable {
 		}
 		return getLastState(lastBuild.getPreviousBuild(),
 				expandedManifestBranch);
+	}
+
+	private void customGitConfig(final Launcher launcher,
+			final FilePath workspace,
+			final EnvVars env,
+			final OutputStream logger)
+			throws IOException, InterruptedException {
+		if (customGitConfig != null) {
+
+			FilePath dir = new FilePath(workspace, ".config/git");
+			if (!dir.exists()) {
+				dir.mkdirs();
+			}
+
+			String[] configs = customGitConfig.split("\\r?\\n");
+			for (String config : configs) {
+				String[] options = config.split("\\s+");
+				if (options.length == 2) {
+					final List<String> commands = new ArrayList<String>(4);
+					commands.add("git");
+					commands.add("config");
+					commands.add("--file");
+					commands.add(env.get("XDG_CONFIG_HOME") + "/git/config");
+					commands.add(options[0]);
+					commands.add(options[1]);
+					launcher.launch().stdout(logger).pwd(workspace)
+							.cmds(commands).envs(env).join();
+					commands.clear();
+				}
+			}
+		}
 	}
 
 	@Override
