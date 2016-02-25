@@ -102,6 +102,10 @@ public class RepoScm extends SCM implements Serializable {
 	@CheckForNull private boolean showAllChanges;
 	@CheckForNull private boolean noTags;
 	@CheckForNull private Set<String> ignoreProjects;
+	@CheckForNull private boolean netrcCredential;
+	@CheckForNull private String netrcCredentialMachine;
+	@CheckForNull private String netrcCredentialLogin;
+	@CheckForNull private String netrcCredentialPassword;
 
 	/**
 	 * Returns the manifest repository URL.
@@ -149,6 +153,11 @@ public class RepoScm extends SCM implements Serializable {
 		// now merge the settings from the last build environment
 		if (environment != null) {
 			finalEnv.overrideAll(environment);
+		}
+
+		if (netrcCredential) {
+			finalEnv.override("XDG_CONFIG_HOME",
+					finalEnv.get("WORKSPACE") + "/.config");
 		}
 
 		EnvVars.resolve(finalEnv);
@@ -275,6 +284,28 @@ public class RepoScm extends SCM implements Serializable {
 	 */
 	@Exported
 	public boolean isNoTags() { return noTags; }
+	/**
+	 * Returns the value of netrcCredential.
+	 */
+	@Exported
+	public boolean getNetrcCredential() { return netrcCredential; }
+	/**
+	 * Returns the value of netrcCredentialMachine.
+	 */
+	@Exported
+	public String getNetrcCredentialMachine() { return netrcCredentialMachine; }
+	/**
+	 * Returns the value of netrcCredentialLogin.
+	 */
+	@Exported
+	public String getNetrcCredentialLogin() { return netrcCredentialLogin; }
+	/**
+	 * Returns the value of netrcCredentialPassword.
+	 */
+	@Exported
+	public String getNetrcCredentialPassword() {
+		return netrcCredentialPassword;
+	}
 
 	/**
 	 * The constructor takes in user parameters and sets them. Each job using
@@ -313,6 +344,14 @@ public class RepoScm extends SCM implements Serializable {
 	 *                              executing "repo init" and "repo sync".
 	 * @param showAllChanges        If this value is true, add the "--first-parent" option to
 	 *                              "git log" when determining changesets.
+	 * @param netrcCredential       If this value is true, write netrc credential information
+	 *                              provided here to ~/.netrc.
+	 * @param netrcCredentialMachine
+	 *                              Netrc machine value.
+	 * @param netrcCredentialLogin
+	 *                              Netrc login value.
+	 * @param netrcCredentialPassword
+	 *                              Netrc password value.
 	 *
 	 */
 	@Deprecated
@@ -326,7 +365,11 @@ public class RepoScm extends SCM implements Serializable {
 				   final boolean resetFirst,
 				   final boolean quiet,
 				   final boolean trace,
-				   final boolean showAllChanges) {
+				   final boolean showAllChanges,
+				   final boolean netrcCredential,
+				   final String netrcCredentialMachine,
+				   final String netrcCredentialLogin,
+				   final String netrcCredentialPassword) {
 		this(manifestRepositoryUrl);
 		setManifestBranch(manifestBranch);
 		setManifestGroup(manifestGroup);
@@ -343,6 +386,10 @@ public class RepoScm extends SCM implements Serializable {
 		setShowAllChanges(showAllChanges);
 		setRepoUrl(repoUrl);
 		ignoreProjects = Collections.<String>emptySet();
+		setNetrcCredential(netrcCredential);
+		setNetrcCredentialMachine(netrcCredentialMachine);
+		setNetrcCredentialLogin(netrcCredentialLogin);
+		setNetrcCredentialPassword(netrcCredentialPassword);
 	}
 
 	/**
@@ -371,6 +418,10 @@ public class RepoScm extends SCM implements Serializable {
 		showAllChanges = false;
 		noTags = false;
 		ignoreProjects = Collections.<String>emptySet();
+		netrcCredential = false;
+		netrcCredentialMachine = null;
+		netrcCredentialLogin = null;
+		netrcCredentialPassword = null;
 	}
 
 	/**
@@ -586,6 +637,48 @@ public class RepoScm extends SCM implements Serializable {
 				Arrays.asList(ignoreProjects.split("\\s+")));
 	}
 
+	/**
+	 * Set netrcCredential.
+	 *
+	 * @param netrcCredential
+	 *            If this value is true, write netrc credential information
+	 *            provided here to ~/.netrc.
+	 */
+	@DataBoundSetter
+	public final void setNetrcCredential(final boolean netrcCredential) {
+		this.netrcCredential = netrcCredential;
+	}
+	/**
+	 * Set netrcCredentialMachine.
+	 *
+	 * @param netrcCredentialMachine
+	 *            Netrc machine value.
+	 */
+	@DataBoundSetter
+	public final void setNetrcCredentialMachine(final String netrcCredentialMachine) {
+		this.netrcCredentialMachine = netrcCredentialMachine;
+	}
+	/**
+	 * Set netrcCredentialLogin.
+	 *
+	 * @param netrcCredentialLogin
+	 *            Netrc login value.
+	 */
+	@DataBoundSetter
+	public final void setNetrcCredentialLogin(final String netrcCredentialLogin) {
+		this.netrcCredentialLogin = netrcCredentialLogin;
+	}
+	/**
+	 * Set netrcCredentialPassword.
+	 *
+	 * @param netrcCredentialPassword
+	 *            Netrc password value.
+	 */
+	@DataBoundSetter
+	public final void setNetrcCredentialPassword(final String netrcCredentialPassword) {
+		this.netrcCredentialPassword = netrcCredentialPassword;
+	}
+
 	@Override
 	public SCMRevisionState calcRevisionsFromBuild(
 			@Nonnull final Run<?, ?> build, @Nullable final FilePath workspace,
@@ -769,6 +862,8 @@ public class RepoScm extends SCM implements Serializable {
 			final EnvVars env,
 			final OutputStream logger)
 			throws IOException, InterruptedException {
+		netrcCredential(launcher, workspace, env, logger);
+
 		final List<String> commands = new ArrayList<String>(4);
 
 		debug.log(Level.INFO, "Checking out code in: " + workspace.getName());
@@ -888,6 +983,34 @@ public class RepoScm extends SCM implements Serializable {
 		}
 		return getLastState(lastBuild.getPreviousBuild(),
 				expandedManifestBranch);
+	}
+
+	private void netrcCredential(final Launcher launcher,
+			final FilePath workspace,
+			final EnvVars env,
+			final OutputStream logger)
+			throws IOException, InterruptedException {
+
+		FilePath dir = new FilePath(workspace, ".config/git");
+		if (!dir.exists()) {
+			dir.mkdirs();
+		}
+
+		final List<String> commands = new ArrayList<String>(4);
+		commands.add("git");
+		commands.add("config");
+		commands.add("--file");
+		commands.add(env.get("XDG_CONFIG_HOME") + "/git/config");
+		commands.add("credential.helper");
+		commands.add("netrc -f " + env.get("WORKSPACE") + "/.netrc");
+		launcher.launch().stdout(logger).pwd(workspace)
+				.cmds(commands).envs(env).join();
+
+		FilePath file = new FilePath(workspace, ".netrc");
+		file.write("machine " + netrcCredentialMachine + "\n"
+				+ "login " + netrcCredentialLogin + "\n"
+				+ "password " + netrcCredentialPassword, null);
+		file.chmod(0600);
 	}
 
 	@Override
