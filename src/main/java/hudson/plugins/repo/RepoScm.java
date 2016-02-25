@@ -106,6 +106,8 @@ public class RepoScm extends SCM implements Serializable {
 	@CheckForNull private String netrcCredentialMachine;
 	@CheckForNull private String netrcCredentialLogin;
 	@CheckForNull private String netrcCredentialPassword;
+	@CheckForNull private String customGitConfig;
+
 
 	/**
 	 * Returns the manifest repository URL.
@@ -155,7 +157,7 @@ public class RepoScm extends SCM implements Serializable {
 			finalEnv.overrideAll(environment);
 		}
 
-		if (netrcCredential) {
+		if (netrcCredential || customGitConfig != null) {
 			finalEnv.override("XDG_CONFIG_HOME",
 					finalEnv.get("WORKSPACE") + "/.config");
 		}
@@ -306,6 +308,12 @@ public class RepoScm extends SCM implements Serializable {
 	public String getNetrcCredentialPassword() {
 		return netrcCredentialPassword;
 	}
+	/**
+	 * Returns the value of customGitConfig.
+	 */
+	@Exported
+	public String getcustomGitConfig() { return customGitConfig; }
+
 
 	/**
 	 * The constructor takes in user parameters and sets them. Each job using
@@ -352,6 +360,9 @@ public class RepoScm extends SCM implements Serializable {
 	 *                              Netrc login value.
 	 * @param netrcCredentialPassword
 	 *                              Netrc password value.
+	 * @param customGitConfig       A string contains lines, and each line is consist of
+	 *                              a git config name value set.
+>>>>>>> feature-git-custom-configuration
 	 *
 	 */
 	@Deprecated
@@ -369,7 +380,8 @@ public class RepoScm extends SCM implements Serializable {
 				   final boolean netrcCredential,
 				   final String netrcCredentialMachine,
 				   final String netrcCredentialLogin,
-				   final String netrcCredentialPassword) {
+				   final String netrcCredentialPassword,
+				   final String customGitConfig) {
 		this(manifestRepositoryUrl);
 		setManifestBranch(manifestBranch);
 		setManifestGroup(manifestGroup);
@@ -390,6 +402,7 @@ public class RepoScm extends SCM implements Serializable {
 		setNetrcCredentialMachine(netrcCredentialMachine);
 		setNetrcCredentialLogin(netrcCredentialLogin);
 		setNetrcCredentialPassword(netrcCredentialPassword);
+		setCustomGitConfig(customGitConfig);
 	}
 
 	/**
@@ -422,6 +435,7 @@ public class RepoScm extends SCM implements Serializable {
 		netrcCredentialMachine = null;
 		netrcCredentialLogin = null;
 		netrcCredentialPassword = null;
+		customGitConfig = null;
 	}
 
 	/**
@@ -678,6 +692,17 @@ public class RepoScm extends SCM implements Serializable {
 	public final void setNetrcCredentialPassword(final String netrcCredentialPassword) {
 		this.netrcCredentialPassword = netrcCredentialPassword;
 	}
+	/**
+	 * Set customGitConfig.
+	 *
+	 * @param customGitConfig
+	 *            A string contains lines, and each line is consist of
+	 *            a git config name value set.
+	 */
+	@DataBoundSetter
+	public final void setCustomGitConfig(final String customGitConfig) {
+		this.customGitConfig = customGitConfig;
+	}
 
 	@Override
 	public SCMRevisionState calcRevisionsFromBuild(
@@ -863,6 +888,7 @@ public class RepoScm extends SCM implements Serializable {
 			final OutputStream logger)
 			throws IOException, InterruptedException {
 		netrcCredential(launcher, workspace, env, logger);
+		customGitConfig(launcher, workspace, env, logger);
 
 		final List<String> commands = new ArrayList<String>(4);
 
@@ -1011,6 +1037,37 @@ public class RepoScm extends SCM implements Serializable {
 				+ "login " + netrcCredentialLogin + "\n"
 				+ "password " + netrcCredentialPassword, null);
 		file.chmod(0600);
+	}
+
+	private void customGitConfig(final Launcher launcher,
+								 final FilePath workspace,
+								 final EnvVars env,
+								 final OutputStream logger)
+			throws IOException, InterruptedException {
+		if (customGitConfig != null) {
+
+			FilePath dir = new FilePath(workspace, ".config/git");
+			if (!dir.exists()) {
+				dir.mkdirs();
+			}
+
+			String[] configs = customGitConfig.split("\\r?\\n");
+			for (String config : configs) {
+				String[] options = config.split("\\s+");
+				if (options.length == 2) {
+					final List<String> commands = new ArrayList<String>(4);
+					commands.add("git");
+					commands.add("config");
+					commands.add("--file");
+					commands.add(env.get("XDG_CONFIG_HOME") + "/git/config");
+					commands.add(options[0]);
+					commands.add(options[1]);
+					launcher.launch().stdout(logger).pwd(workspace)
+							.cmds(commands).envs(env).join();
+					commands.clear();
+				}
+			}
+		}
 	}
 
 	@Override
