@@ -987,14 +987,16 @@ public class RepoScm extends SCM implements Serializable {
 				"ssh", "-p", "29418", "jenkins@" + host, "manifest",
 				"static", "-p", project, "-b", branch , "-g", group);
 		Process process = pb.start();
+		final String stdout = output(process.getInputStream());
+		final String stderr = output(process.getErrorStream());
+
 		int errCode = process.waitFor();
 		if (errCode != 0) {
-			throw new IOException(output(process.getErrorStream()));
+			throw new IOException(stderr);
 		}
 
-		final String manifestText = output(process.getInputStream());
-		debug.log(Level.FINEST, manifestText);
-		return manifestText;
+		debug.log(Level.FINEST, stdout);
+		return stdout;
 	}
 
 	private String getManifestRevision(final Launcher launcher,
@@ -1027,14 +1029,16 @@ public class RepoScm extends SCM implements Serializable {
 				"ssh", "-p", "29418", "jenkins@" + host, "manifest",
 				"reference", "-p", project, "-b", branch);
 		Process process = pb.start();
+		final String stdout = output(process.getInputStream());
+		final String stderr = output(process.getErrorStream());
+
 		int errCode = process.waitFor();
 		if (errCode != 0) {
-			throw new IOException(output(process.getErrorStream()));
+			throw new IOException(stderr);
 		}
 
-		final String manifestText = output(process.getInputStream());
-		debug.log(Level.FINEST, manifestText);
-		return manifestText;
+		debug.log(Level.FINEST, stdout);
+		return stdout;
 	}
 
 	private RevisionState getLastState(final Run<?, ?> lastBuild,
