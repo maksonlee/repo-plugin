@@ -752,6 +752,10 @@ public class RepoScm extends SCM implements Serializable {
 			@Nullable final FilePath workspace, @Nonnull final TaskListener listener,
 			@Nonnull final SCMRevisionState baseline) throws IOException,
 			InterruptedException {
+		if ((manifestRepositoryUrl == null) || manifestRepositoryUrl.isEmpty()) {
+			return PollingResult.NO_CHANGES;
+		}
+
 		SCMRevisionState myBaseline = baseline;
 		final EnvVars env = getEnvVars(null, job);
 		final String expandedManifestBranch = env.expand(manifestBranch);
@@ -804,6 +808,14 @@ public class RepoScm extends SCM implements Serializable {
 		Job<?, ?> job = build.getParent();
 		EnvVars env = build.getEnvironment(listener);
 		env = getEnvVars(env, job);
+
+		netrcCredential(launcher, workspace, env, listener.getLogger());
+		customGitConfig(launcher, workspace, env, listener.getLogger());
+
+		if ((manifestRepositoryUrl == null) || manifestRepositoryUrl.isEmpty()) {
+			return;
+		}
+
 		if (!checkoutCode(launcher, repoDir, env, listener.getLogger())) {
 			throw new IOException("Could not checkout");
 		}
@@ -880,9 +892,6 @@ public class RepoScm extends SCM implements Serializable {
 			final EnvVars env,
 			final OutputStream logger)
 			throws IOException, InterruptedException {
-		netrcCredential(launcher, workspace, env, logger);
-		customGitConfig(launcher, workspace, env, logger);
-
 		final List<String> commands = new ArrayList<String>(4);
 
 		debug.log(Level.INFO, "Checking out code in: " + workspace.getName());
