@@ -163,7 +163,7 @@ public class RepoScm extends SCM implements Serializable {
 			finalEnv.overrideAll(environment);
 		}
 
-		if (netrcCredential || customGitConfig != null) {
+		if (netrcCredential) {
 			finalEnv.override("XDG_CONFIG_HOME",
 					finalEnv.get("WORKSPACE") + "/.config");
 		}
@@ -1100,12 +1100,6 @@ public class RepoScm extends SCM implements Serializable {
 								 final OutputStream logger)
 			throws IOException, InterruptedException {
 		if (customGitConfig != null) {
-
-			FilePath dir = new FilePath(workspace, ".config/git");
-			if (!dir.exists()) {
-				dir.mkdirs();
-			}
-
 			String[] configs = customGitConfig.split("\\r?\\n");
 			for (String config : configs) {
 				String[] options = config.split("\\s+");
@@ -1113,8 +1107,7 @@ public class RepoScm extends SCM implements Serializable {
 					final List<String> commands = new ArrayList<String>(4);
 					commands.add("git");
 					commands.add("config");
-					commands.add("--file");
-					commands.add(env.get("XDG_CONFIG_HOME") + "/git/config");
+					commands.add("--global");
 					commands.add(options[0]);
 					commands.add(options[1]);
 					launcher.launch().stdout(logger).pwd(workspace)
