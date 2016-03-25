@@ -985,20 +985,22 @@ public class RepoScm extends SCM implements Serializable {
 			final EnvVars env,
 			final OutputStream logger)
 			throws IOException, InterruptedException {
-		final List<String> commands = new ArrayList<String>(4);
-		commands.add("git");
-		commands.add("config");
-		commands.add("--global");
-		commands.add("credential.helper");
-		commands.add("netrc -f " + env.get("WORKSPACE") + "/.netrc");
-		launcher.launch().stdout(logger).pwd(workspace)
-				.cmds(commands).envs(env).join();
+		if (netrcCredential) {
+			final List<String> commands = new ArrayList<String>(4);
+			commands.add("git");
+			commands.add("config");
+			commands.add("--global");
+			commands.add("credential.helper");
+			commands.add("netrc -f " + env.get("WORKSPACE") + "/.netrc");
+			launcher.launch().stdout(logger).pwd(workspace)
+					.cmds(commands).envs(env).join();
 
-		FilePath file = new FilePath(workspace, ".netrc");
-		file.write("machine " + netrcCredentialMachine + "\n"
-				+ "login " + netrcCredentialLogin + "\n"
-				+ "password " + netrcCredentialPassword, null);
-		file.chmod(0600);
+			FilePath file = new FilePath(workspace, ".netrc");
+			file.write("machine " + netrcCredentialMachine + "\n"
+					+ "login " + netrcCredentialLogin + "\n"
+					+ "password " + netrcCredentialPassword, null);
+			file.chmod(0600);
+		}
 	}
 
 	@Override
