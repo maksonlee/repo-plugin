@@ -1067,16 +1067,15 @@ public class RepoScm extends SCM implements Serializable {
 			final OutputStream logger)
 			throws IOException, InterruptedException {
 		if (netrcCredential) {
+			FilePath file = new FilePath(workspace, ".netrc");
 			final List<String> commands = new ArrayList<String>(4);
 			commands.add("git");
 			commands.add("config");
 			commands.add("--global");
 			commands.add("credential.helper");
-			commands.add("netrc -f " + env.get("WORKSPACE") + "/.netrc");
+			commands.add("netrc -f " + file.getRemote());
 			launcher.launch().stdout(logger).pwd(workspace)
 					.cmds(commands).envs(env).join();
-
-			FilePath file = new FilePath(workspace, ".netrc");
 			file.write("machine " + netrcCredentialMachine + "\n"
 					+ "login " + netrcCredentialLogin + "\n"
 					+ "password " + netrcCredentialPassword, null);
