@@ -714,7 +714,7 @@ public class RepoScm extends SCM implements Serializable {
 			ChangeLog.saveChangeLog(currentState, previousState, changelogFile,
 					launcher, repoDir, showAllChanges);
 		}
-		build.addAction(new TagAction(build));
+		build.addAction(new TagAction(build, currentState));
 	}
 
 	private int doSync(final Launcher launcher, final FilePath workspace,

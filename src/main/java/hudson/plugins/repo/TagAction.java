@@ -35,6 +35,7 @@ import org.kohsuke.stapler.export.ExportedBean;
  */
 @ExportedBean(defaultVisibility = 999)
 public class TagAction extends AbstractScmTagAction {
+	private RevisionState revisionState;
 
 	/**
 	 * Constructs the tag action object. Just call the superclass.
@@ -44,6 +45,19 @@ public class TagAction extends AbstractScmTagAction {
 	 */
 	TagAction(final Run<?, ?> build) {
 		super(build);
+	}
+
+	/**
+	 * Constructs the tag action object.
+	 *
+	 * @param build
+	 *            Build which we are interested in tagging
+	 * @param revisionState
+	 *            Revision associated to the checkout
+	 */
+	TagAction(final Run<?, ?> build, final RevisionState revisionState) {
+		super(build);
+		this.revisionState = revisionState;
 	}
 
 	/**
@@ -78,13 +92,13 @@ public class TagAction extends AbstractScmTagAction {
 		return false;
 	}
 
+
+
 	/**
 	 * Gets a String representation of the static manifest for this repo
 	 * snapshot.
 	 */
     public String getManifest() {
-        final RevisionState revisionState =
-            getRun().getAction(RevisionState.class);
         final String manifest = revisionState.getManifest();
         return manifest;
 	}
