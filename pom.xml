@@ -8,7 +8,7 @@
 
   <groupId>org.jenkins-ci.plugins</groupId>
   <artifactId>repo</artifactId>
-  <version>1.10.2-SNAPSHOT</version>
+  <version>1.10.4-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <name>Jenkins REPO plugin</name>
   <description>Integrates Jenkins with REPO SCM</description>
@@ -23,6 +23,15 @@
   </licenses>
 
   <developers>
+    <developer>
+      <id>rsandell</id>
+      <name>Robert Sandell</name>
+      <email>rsandell@cloudbees.com</email>
+      <roles>
+        <role>babysitter</role>
+      </roles>
+      <timezone>+1</timezone>
+    </developer>
     <developer>
       <id>aep</id>
       <name>Arvid E. Picciani</name>
@@ -92,7 +101,7 @@
       </plugin>
     </plugins>
   </reporting>
-  
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -110,10 +119,10 @@
   <distributionManagement>
     <repository>
       <id>maven.jenkins-ci.org</id>
-      <url>http://maven.jenkins-ci.org:8081/content/repositories/releases/</url>
+      <url>https://repo.jenkins-ci.org/releases</url>
     </repository>
   </distributionManagement>
-  
+
   <scm>
     <connection>scm:git:git://github.com/jenkinsci/repo-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:jenkinsci/repo-plugin.git</developerConnection>
@@ -135,6 +144,4 @@
             <url>http://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
-</project>  
-  
-
+</project>
