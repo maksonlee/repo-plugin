@@ -719,7 +719,7 @@ public class RepoScm extends SCM implements Serializable {
 		// be called often. However it will be called if this is the first
 		// build, if a build was aborted before it reported the repository
 		// state, etc.
-		return null;
+		return SCMRevisionState.NONE;
 	}
 
 	private boolean shouldIgnoreChanges(final RevisionState current, final RevisionState baseline) {
@@ -757,10 +757,10 @@ public class RepoScm extends SCM implements Serializable {
 		final String expandedManifestBranch = env.expand(manifestBranch);
 		final Run<?, ?> lastRun = job.getLastBuild();
 
-		if (myBaseline == null) {
+		if (myBaseline == SCMRevisionState.NONE) {
 			// Probably the first build, or possibly an aborted build.
 			myBaseline = getLastState(lastRun, expandedManifestBranch);
-			if (myBaseline == null) {
+			if (myBaseline == SCMRevisionState.NONE) {
 				return PollingResult.BUILD_NOW;
 			}
 		}
@@ -774,7 +774,8 @@ public class RepoScm extends SCM implements Serializable {
 		if (currentState.equals(myBaseline)) {
 			change = Change.NONE;
 		} else {
-			if (shouldIgnoreChanges(currentState, (RevisionState) myBaseline)) {
+			if (shouldIgnoreChanges(currentState,
+					myBaseline instanceof RevisionState ? (RevisionState) myBaseline : null)) {
 				change = Change.NONE;
 			} else {
 				change = Change.SIGNIFICANT;
@@ -826,12 +827,17 @@ public class RepoScm extends SCM implements Serializable {
 		build.addAction(currentState);
 
 		final Run previousBuild = build.getPreviousBuild();
-		final RevisionState previousState =
+		final SCMRevisionState previousState =
 				getLastState(previousBuild, expandedBranch);
 
 		if (changelogFile != null) {
-			ChangeLog.saveChangeLog(currentState, previousState, changelogFile,
-					launcher, repoDir, showAllChanges);
+			ChangeLog.saveChangeLog(
+					currentState,
+					previousState == SCMRevisionState.NONE ? null : (RevisionState) previousState,
+					changelogFile,
+					launcher,
+					repoDir,
+					showAllChanges);
 		}
 		build.addAction(new TagAction(build));
 	}
@@ -877,10 +883,8 @@ public class RepoScm extends SCM implements Serializable {
 			commands.add("--no-tags");
 		}
 
-		int returnCode =
-				launcher.launch().stdout(logger).pwd(workspace)
-						.cmds(commands).envs(env).join();
-		return returnCode;
+		return launcher.launch().stdout(logger).pwd(workspace)
+                .cmds(commands).envs(env).join();
 	}
 
 	private boolean checkoutCode(final Launcher launcher,
@@ -1047,10 +1051,11 @@ public class RepoScm extends SCM implements Serializable {
 		return stdout;
 	}
 
-	private RevisionState getLastState(final Run<?, ?> lastBuild,
+	@Nonnull
+	private SCMRevisionState getLastState(final Run<?, ?> lastBuild,
 			final String expandedManifestBranch) {
 		if (lastBuild == null) {
-			return null;
+			return RevisionState.NONE;
 		}
 		final RevisionState lastState =
 				lastBuild.getAction(RevisionState.class);
