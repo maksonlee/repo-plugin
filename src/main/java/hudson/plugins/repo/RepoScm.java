@@ -817,9 +817,9 @@ public class RepoScm extends SCM implements Serializable {
 			throw new IOException("Could not checkout");
 		}
 		final String manifest =
-				getStaticManifest(launcher, repoDir, listener.getLogger());
+				getStaticManifest(launcher, repoDir, listener.getLogger(), env);
 		final String manifestRevision =
-				getManifestRevision(launcher, repoDir, listener.getLogger());
+				getManifestRevision(launcher, repoDir, listener.getLogger(), env);
 		final String expandedBranch = env.expand(manifestBranch);
 		final RevisionState currentState =
 				new RevisionState(manifest, manifestRevision, expandedBranch,
@@ -854,7 +854,7 @@ public class RepoScm extends SCM implements Serializable {
 			commands.add("-c");
 			commands.add("git reset --hard");
 			int syncCode = launcher.launch().stdout(logger)
-				.stderr(logger).pwd(workspace).cmds(commands).join();
+				.stderr(logger).pwd(workspace).cmds(commands).envs(env).join();
 
 			if (syncCode != 0) {
 				debug.log(Level.WARNING, "Failed to reset first.");
@@ -965,7 +965,8 @@ public class RepoScm extends SCM implements Serializable {
 	}
 
 	private String getStaticManifest(final Launcher launcher,
-			final FilePath workspace, final OutputStream logger)
+			final FilePath workspace, final OutputStream logger,
+			final EnvVars env)
 			throws IOException, InterruptedException {
 		final ByteArrayOutputStream output = new ByteArrayOutputStream();
 		final List<String> commands = new ArrayList<String>(6);
@@ -976,7 +977,7 @@ public class RepoScm extends SCM implements Serializable {
 		commands.add("-r");
 		// TODO: should we pay attention to the output from this?
 		launcher.launch().stderr(logger).stdout(output).pwd(workspace)
-				.cmds(commands).join();
+				.cmds(commands).envs(env).join();
 		final String manifestText = output.toString();
 		debug.log(Level.FINEST, manifestText);
 		return manifestText;
@@ -1010,7 +1011,8 @@ public class RepoScm extends SCM implements Serializable {
 	}
 
 	private String getManifestRevision(final Launcher launcher,
-			final FilePath workspace, final OutputStream logger)
+			final FilePath workspace, final OutputStream logger,
+			final EnvVars env)
 			throws IOException, InterruptedException {
 		final ByteArrayOutputStream output = new ByteArrayOutputStream();
 		final List<String> commands = new ArrayList<String>(6);
@@ -1019,7 +1021,7 @@ public class RepoScm extends SCM implements Serializable {
 		commands.add("HEAD");
 		launcher.launch().stderr(logger).stdout(output).pwd(
 				new FilePath(workspace, ".repo/manifests"))
-				.cmds(commands).join();
+				.cmds(commands).envs(env).join();
 		final String manifestText = output.toString().trim();
 		debug.log(Level.FINEST, manifestText);
 		return manifestText;
