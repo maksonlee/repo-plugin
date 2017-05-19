@@ -758,7 +758,7 @@ public class RepoScm extends SCM implements Serializable {
 		final String expandedManifestBranch = env.expand(manifestBranch);
 		final Run<?, ?> lastRun = job.getLastBuild();
 
-		if (myBaseline == SCMRevisionState.NONE) {
+		if (myBaseline.getClass() == SCMRevisionState.NONE.getClass()) {
 			// Probably the first build, or possibly an aborted build.
 			myBaseline = getLastState(lastRun, expandedManifestBranch);
 			if (myBaseline == SCMRevisionState.NONE) {
