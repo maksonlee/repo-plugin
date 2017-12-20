@@ -113,6 +113,8 @@ public class RepoScm extends SCM implements Serializable {
 	@CheckForNull private String netrcCredentialLogin;
 	@CheckForNull private String netrcCredentialPassword;
 	@CheckForNull private String customGitConfig;
+	@CheckForNull private String sshAuthSock;
+	@CheckForNull private String sshAgentPid;
 
 
 	/**
@@ -158,6 +160,12 @@ public class RepoScm extends SCM implements Serializable {
 					}
 				}
 			}
+		}
+		if (sshAuthSock != null) {
+			finalEnv.put("SSH_AUTH_SOCK", sshAuthSock);
+		}
+		if (sshAgentPid != null) {
+			finalEnv.put("SSH_AGENT_PID", sshAgentPid);
 		}
 		// now merge the settings from the last build environment
 		if (environment != null) {
@@ -315,6 +323,22 @@ public class RepoScm extends SCM implements Serializable {
 	 */
 	@Exported
 	public String getcustomGitConfig() { return customGitConfig; }
+	/**
+	 *
+	 * Returns the value of sshAuthSock.
+	 */
+	@Exported
+	public String getSshAuthSock() {
+		return sshAuthSock;
+	}
+	/**
+	 *
+	 * Returns the value of sshAgentPid.
+	 */
+	@Exported
+	public String getSshAgentPid() {
+		return sshAgentPid;
+	}
 
 
 	/**
@@ -365,6 +389,10 @@ public class RepoScm extends SCM implements Serializable {
 	 *                              Netrc password value.
 	 * @param customGitConfig       A string contains lines, and each line is consist of
 	 *                              a git config name value set.
+	 * @param sshAuthSock           A string contains the value of SSH_AUTH_SOCK environment
+	 *                              variable.
+	 * @param sshAgentPid           A string contains the value of SSH_AGENT_PID environment
+	 *                              variable.
 	 *
 	 */
 	@Deprecated
@@ -383,7 +411,9 @@ public class RepoScm extends SCM implements Serializable {
 				   final String netrcCredentialMachine,
 				   final String netrcCredentialLogin,
 				   final String netrcCredentialPassword,
-				   final String customGitConfig) {
+				   final String customGitConfig,
+				   final String sshAuthSock,
+				   final String sshAgentPid) {
 		this(manifestRepositoryUrl);
 		setManifestBranch(manifestBranch);
 		setManifestGroup(manifestGroup);
@@ -405,6 +435,8 @@ public class RepoScm extends SCM implements Serializable {
 		setNetrcCredentialLogin(netrcCredentialLogin);
 		setNetrcCredentialPassword(netrcCredentialPassword);
 		setCustomGitConfig(customGitConfig);
+		setSshAuthSock(sshAuthSock);
+		setSshAgentPid(sshAgentPid);
 	}
 
 	/**
@@ -438,6 +470,8 @@ public class RepoScm extends SCM implements Serializable {
 		netrcCredentialLogin = null;
 		netrcCredentialPassword = null;
 		customGitConfig = null;
+		sshAuthSock = null;
+		sshAgentPid = null;
 	}
 
 	/**
@@ -704,6 +738,28 @@ public class RepoScm extends SCM implements Serializable {
 	@DataBoundSetter
 	public final void setCustomGitConfig(final String customGitConfig) {
 		this.customGitConfig = customGitConfig;
+	}
+	/**
+	 * Set SSH_AUTH_SOCK.
+	 *
+	 * @param sshAuthSock
+	 *            A string contains the value of SSH_AUTH_SOCK environment
+	 *            variable.
+	 */
+	@DataBoundSetter
+	public final void setSshAuthSock(final String sshAuthSock) {
+		this.sshAuthSock = sshAuthSock;
+	}
+	/**
+	 * Set SSH_AGENT_PID.
+	 *
+	 * @param sshAgentPid
+	 *            A string contains the value of SSH_AGENT_PID environment
+	 *            variable.
+	 */
+	@DataBoundSetter
+	public final void setSshAgentPid(final String sshAgentPid) {
+		this.sshAgentPid = sshAgentPid;
 	}
 
 	@Override
