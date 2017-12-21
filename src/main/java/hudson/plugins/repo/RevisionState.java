@@ -56,6 +56,7 @@ class RevisionState extends SCMRevisionState implements Serializable {
 	private final String manifest;
 	private final Map<String, ProjectState> projects =
 			new TreeMap<String, ProjectState>();
+	private final String manifestRepositoryUrl;
 	private final String branch;
 
 	private static Logger debug =
@@ -68,14 +69,18 @@ class RevisionState extends SCMRevisionState implements Serializable {
 	 *            A string representation of the static manifest XML file
 	 * @param manifestRevision
      *            Git hash of the manifest repo
+	 * @param manifestRepositoryUrl
+	 *            The URL for the manifest repository
 	 * @param branch
 	 *            The branch of the manifest project
 	 * @param logger
 	 *            A PrintStream for logging errors
 	 */
 	RevisionState(final String manifest, final String manifestRevision,
-				  final String branch, @Nullable final PrintStream logger) {
+				  final String manifestRepositoryUrl, final String branch,
+				  @Nullable final PrintStream logger) {
 		this.manifest = manifest;
+		this.manifestRepositoryUrl = manifestRepositoryUrl;
 		this.branch = branch;
 		try {
 			final InputSource xmlSource = new InputSource();
@@ -154,6 +159,13 @@ class RevisionState extends SCMRevisionState implements Serializable {
 		return (branch != null ? branch.hashCode() : 0)
 			^ (manifest != null ? manifest.hashCode() : 0)
 			^ projects.hashCode();
+	}
+
+	/**
+	 * Returns the URL for the manifest repository when this state was created.
+	 */
+	public String getManifestRepositoryUrl() {
+		return manifestRepositoryUrl;
 	}
 
 	/**

@@ -825,7 +825,8 @@ public class RepoScm extends SCM implements Serializable {
 		final RevisionState currentState = new RevisionState(
 				getStaticManifestBySshCommand(),
 				getManifestRevisionBySshCommand(),
-				expandedManifestBranch, listener.getLogger());
+				manifestRepositoryUrl, expandedManifestBranch,
+				listener.getLogger());
 
 		final Change change;
 		if (currentState.equals(myBaseline)) {
@@ -879,8 +880,8 @@ public class RepoScm extends SCM implements Serializable {
 				getManifestRevision(launcher, repoDir, listener.getLogger(), env);
 		final String expandedBranch = env.expand(manifestBranch);
 		final RevisionState currentState =
-				new RevisionState(manifest, manifestRevision, expandedBranch,
-						listener.getLogger());
+				new RevisionState(manifest, manifestRevision, manifestRepositoryUrl,
+						expandedBranch, listener.getLogger());
 		build.addAction(currentState);
 
 		final Run previousBuild = build.getPreviousBuild();
@@ -1119,19 +1120,24 @@ public class RepoScm extends SCM implements Serializable {
 
 	@Nonnull
 	private SCMRevisionState getLastState(final Run<?, ?> lastBuild,
-			final String expandedManifestBranch) {
+										  final String expandedManifestBranch) {
 		if (lastBuild == null) {
 			return RevisionState.NONE;
 		}
-		final RevisionState lastState =
-				lastBuild.getAction(RevisionState.class);
-		if (lastState != null
-				&& StringUtils.equals(lastState.getBranch(),
+
+		final List<RevisionState> lastStates = lastBuild.getActions(RevisionState.class);
+		if (lastStates != null) {
+			for (RevisionState lastState : lastStates) {
+				if (StringUtils.equals(lastState.getManifestRepositoryUrl(),
+						manifestRepositoryUrl)
+						&& StringUtils.equals(lastState.getBranch(),
 						expandedManifestBranch)) {
-			return lastState;
+					return lastState;
+				}
+			}
 		}
-		return getLastState(lastBuild.getPreviousBuild(),
-				expandedManifestBranch);
+
+		return getLastState(lastBuild.getPreviousBuild(), expandedManifestBranch);
 	}
 
 	private void netrcCredential(final Launcher launcher,

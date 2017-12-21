@@ -74,12 +74,12 @@ public class TestRevisionState extends TestCase {
 	protected void setUp() throws Exception {
 		super.setUp();
 
-		stateOne = new RevisionState(manifestOne,     "a",  "master", null);
-		stateOneCopy = new RevisionState(manifestOne, "a",  "master", null);
-		stateTwo = new RevisionState(manifestTwo,     "a",  "master", null);
-		stateThree = new RevisionState(manifestThree, "a",  "master", null);
+		stateOne = new RevisionState(manifestOne, "a", "url", "master", null);
+		stateOneCopy = new RevisionState(manifestOne, "a", "url", "master", null);
+		stateTwo = new RevisionState(manifestTwo,     "a", "url", "master", null);
+		stateThree = new RevisionState(manifestThree, "a", "url", "master", null);
 
-		stateMChange = new RevisionState(manifestThree, "b",  "master", null);
+		stateMChange = new RevisionState(manifestThree, "b", "url", "master", null);
 	}
 
 	/**
