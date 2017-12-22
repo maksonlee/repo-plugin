@@ -200,8 +200,8 @@ class ChangeLog extends ChangeLogParser {
 					if (!fileLine.startsWith(":")) {
 						continue;
 					}
-					final char action = fileLine.substring(37, 38).charAt(0);
-					final String path = fileLine.substring(39);
+					final char action = fileLine.split(" ")[4].charAt(0);
+					final String path = fileLine.split("\t")[1];
 					modifiedFiles.add(new ModifiedFile(path, action));
 				}
 				ChangeLogEntry nc = new ChangeLogEntry(change.getPath(), change
