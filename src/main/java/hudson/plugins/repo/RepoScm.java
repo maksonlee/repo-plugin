@@ -897,7 +897,9 @@ public class RepoScm extends SCM implements Serializable {
 					repoDir,
 					showAllChanges);
 		}
-		build.addAction(new TagAction(build));
+		if (build.getActions(TagAction.class).size() == 0) {
+			build.addAction(new TagAction(build));
+		}
 	}
 
 	private int doSync(final Launcher launcher, final FilePath workspace,

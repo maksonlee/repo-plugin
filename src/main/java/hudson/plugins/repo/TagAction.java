@@ -28,6 +28,9 @@ import hudson.scm.AbstractScmTagAction;
 
 import org.kohsuke.stapler.export.ExportedBean;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A Tag Action allows a user to tag a build. Repo doesn't support a solid tag
  * method, so right now we just display the static manifest information needed
@@ -82,9 +85,15 @@ public class TagAction extends AbstractScmTagAction {
 	 * Gets a String representation of the static manifest for this repo
 	 * snapshot.
 	 */
-    public String getManifest() {
-        final RevisionState revisionState =
-            getRun().getAction(RevisionState.class);
-		return revisionState.getManifest();
+	public List<String> getManifests() {
+		List<String> manifests = new ArrayList<String>();
+
+		final List<RevisionState> revisionStates = getRun().getActions(RevisionState.class);
+		if (revisionStates != null) {
+			for (RevisionState revisionState : revisionStates) {
+				manifests.add(revisionState.getManifest());
+			}
+		}
+		return manifests;
 	}
 }

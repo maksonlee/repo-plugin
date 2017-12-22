@@ -14,7 +14,9 @@
 			When done, be sure to undo changes to the .repo/manifest.xml file and repo sync again.
 			
 			Manifest File:<br /><br />
-			<textarea rows="15" cols="140">${it.manifest}</textarea>
+			<j:forEach var="manifest" items="${it.manifests}" varStatus="loop">
+			    <textarea rows="15" cols="140">${manifest}</textarea>
+			</j:forEach>
 		</l:main-panel>
 	</l:layout>
 </j:jelly>
