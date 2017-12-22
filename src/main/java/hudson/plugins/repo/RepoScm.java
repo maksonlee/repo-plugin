@@ -1155,12 +1155,8 @@ public class RepoScm extends SCM implements Serializable {
 	@Nonnull
 	private SCMRevisionState getLastState(final Run<?, ?> lastBuild,
 										  final String expandedManifestBranch) {
-		if (lastBuild == null) {
-			return RevisionState.NONE;
-		}
-
-		final List<RevisionState> lastStates = lastBuild.getActions(RevisionState.class);
-		if (lastStates != null) {
+		if (lastBuild != null && lastBuild.getActions(RevisionState.class) != null) {
+			final List<RevisionState> lastStates = lastBuild.getActions(RevisionState.class);
 			for (RevisionState lastState : lastStates) {
 				if (StringUtils.equals(lastState.getManifestRepositoryUrl(),
 						manifestRepositoryUrl)
@@ -1171,7 +1167,7 @@ public class RepoScm extends SCM implements Serializable {
 			}
 		}
 
-		return getLastState(lastBuild.getPreviousBuild(), expandedManifestBranch);
+		return RevisionState.NONE;
 	}
 
 	private String output(final InputStream inputStream)
