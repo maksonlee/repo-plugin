@@ -23,7 +23,8 @@
  */
 package hudson.plugins.repo;
 
-import java.util.logging.Level;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import org.kohsuke.stapler.export.ExportedBean;
@@ -93,16 +94,15 @@ public class ManifestAction implements RunAction2, BuildBadgeAction  {
 	/**
 	 * Gets a String representation of the static manifest for this repo snapshot.
 	 */
-	public String getManifest() {
-		String result = "";
-		try {
-			final RevisionState revisionState = run.getAction(RevisionState.class);
-			if (revisionState != null) {
-				result = revisionState.getManifest();
+	public List<String> getManifests() {
+		List<String> manifests = new ArrayList<String>();
+
+		final List<RevisionState> revisionStates = getRun().getActions(RevisionState.class);
+		if (revisionStates != null) {
+			for (RevisionState revisionState : revisionStates) {
+				manifests.add(revisionState.getManifest());
 			}
-		} catch (Exception e) {
-			debug.log(Level.WARNING, "Error getting revision state {0}", e.getMessage());
 		}
-		return result;
+		return manifests;
 	}
 }
