@@ -28,6 +28,7 @@ import hudson.Launcher;
 import hudson.model.Run;
 import hudson.plugins.repo.ChangeLogEntry.ModifiedFile;
 import hudson.scm.ChangeLogParser;
+import hudson.scm.EditType;
 import hudson.scm.RepositoryBrowser;
 import hudson.util.AtomicFileWriter;
 import hudson.util.XStream2;
@@ -38,9 +39,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -118,22 +120,21 @@ class ChangeLog extends ChangeLogParser {
 		debug.log(Level.FINEST, "generateChangeLog: changes " + changes);
 		if (changes == null || changes.size() == 0) {
 			// No changes or the first job
-			return null;
+			return Collections.emptyList();
 		}
 		final List<String> commands = new ArrayList<String>(5);
 		final List<ChangeLogEntry> logs = new ArrayList<ChangeLogEntry>();
 
-
 		for (final ProjectState change : changes) {
 			debug.log(Level.FINEST, "change: " + change);
+			String newRevision = currentState.getRevision(change.getPath());
 			if (change.getRevision() == null) {
 				// This project was just added to the manifest.
 				logs.add(new ChangeLogEntry(change.getPath(), change
-						.getServerPath(), null, null, null, null, null, null,
+						.getServerPath(), newRevision, null, null, null, null, null,
 						null, "This project was added to the manifest.", null));
 				continue;
 			}
-			String newRevision = currentState.getRevision(change.getPath());
 			if (newRevision == null) {
 				// This project was just removed from the manifest.
 				logs.add(new ChangeLogEntry(change.getPath(), change
@@ -170,10 +171,10 @@ class ChangeLog extends ChangeLogParser {
 			// is definitely preferable. Most of the code can probably be copied
 			// from Gerrit.  It might be tricky with master/slave setup.
 			commands.add(change.getRevision() + ".." + newRevision);
-			final OutputStream gitOutput = new ByteArrayOutputStream();
+			final ByteArrayOutputStream gitOutput = new ByteArrayOutputStream();
 			launcher.launch().stdout(gitOutput).pwd(gitdir).cmds(commands)
 					.join();
-            final String o = gitOutput.toString();
+            final String o = new String(gitOutput.toByteArray(), Charset.defaultCharset());
 			final String[] changelogs = o.split(
                             "\\[\\[<as7d9m1R_MARK_A>\\]\\]");
             debug.log(Level.INFO, o);
@@ -197,12 +198,58 @@ class ChangeLog extends ChangeLogParser {
 				final List<ModifiedFile> modifiedFiles =
 						new ArrayList<ModifiedFile>();
 				for (final String fileLine : fileLines) {
+					// Format of these lines is described in the "RAW OUTPUT
+					// FORMAT" section of "git diff --help"...
+					//
+					// An output line is formatted this way:
+					//     in-place edit  :100644 100644 bcd1234... 0123456... M file0
+					//     copy-edit      :100644 100644 abcd123... 1234567... C68 file1 file2
+					//     rename-edit    :100644 100644 abcd123... 1234567... R86 file1 file3
+					//     create         :000000 100644 0000000... 1234567... A file4
+					//     delete         :100644 000000 1234567... 0000000... D file5
+					//     unmerged       :000000 000000 0000000... 0000000... U file6
+					//
+					// Note that the filenames are preceded by tabs rather than spaces.
+
 					if (!fileLine.startsWith(":")) {
 						continue;
 					}
-					final char action = fileLine.split(" ")[4].charAt(0);
-					final String path = fileLine.split("\t")[1];
-					modifiedFiles.add(new ModifiedFile(path, action));
+
+					final String[] spaceParts = fileLine.split(" ", 5);
+					if (spaceParts.length != 5) {
+						continue;
+					}
+
+					final String[] tabParts = spaceParts[4].split("\t");
+					if (tabParts[0].isEmpty()) {
+						continue;
+					}
+					final char action = tabParts[0].charAt(0);
+					final int expectedLen = ((action == 'C') || (action == 'R')) ? 3 : 2;
+					if (tabParts.length != expectedLen) {
+						continue;
+					}
+
+					switch (action) {
+						case 'M':
+							modifiedFiles.add(new ModifiedFile(tabParts[1], EditType.EDIT));
+							break;
+						case 'C':
+							modifiedFiles.add(new ModifiedFile(tabParts[2], EditType.ADD));
+							break;
+						case 'R':
+							modifiedFiles.add(new ModifiedFile(tabParts[1], EditType.DELETE));
+							modifiedFiles.add(new ModifiedFile(tabParts[2], EditType.ADD));
+							break;
+						case 'A':
+							modifiedFiles.add(new ModifiedFile(tabParts[1], EditType.ADD));
+							break;
+						case 'D':
+							modifiedFiles.add(new ModifiedFile(tabParts[1], EditType.DELETE));
+							break;
+						default:
+							continue;
+					}
 				}
 				ChangeLogEntry nc = new ChangeLogEntry(change.getPath(), change
 						.getServerPath(), revision, authorName, authorEmail,

@@ -32,6 +32,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -102,6 +103,7 @@ public class RepoScm extends SCM implements Serializable {
 	@CheckForNull private String destinationDir;
 	@CheckForNull private boolean currentBranch;
 	@CheckForNull private boolean resetFirst;
+	@CheckForNull private boolean cleanFirst;
 	@CheckForNull private boolean quiet;
 	@CheckForNull private boolean forceSync;
 	@CheckForNull private boolean trace;
@@ -115,7 +117,8 @@ public class RepoScm extends SCM implements Serializable {
 	@CheckForNull private String customGitConfig;
 	@CheckForNull private String sshAuthSock;
 	@CheckForNull private String sshAgentPid;
-
+	@CheckForNull private EnvVars extraEnvVars;
+	@CheckForNull private boolean noCloneBundle;
 
 	/**
 	 * Returns the manifest repository URL.
@@ -170,6 +173,11 @@ public class RepoScm extends SCM implements Serializable {
 		// now merge the settings from the last build environment
 		if (environment != null) {
 			finalEnv.overrideAll(environment);
+		}
+
+		// merge extra env vars, if specified
+		if (extraEnvVars != null) {
+			finalEnv.overrideAll(extraEnvVars);
 		}
 
 		EnvVars.resolve(finalEnv);
@@ -263,15 +271,29 @@ public class RepoScm extends SCM implements Serializable {
 		return currentBranch;
 	}
 	/**
-	 * Returns the value of resetFirst.the initial manifest file name.
+	 * Returns the value of resetFirst.
 	 */
 	@Exported
-	public boolean isResetFirst() { return resetFirst; }
+	public boolean isResetFirst() {
+		return resetFirst;
+	}
+
+	/**
+	 * Returns the value of cleanFirst.
+	 */
+	@Exported
+	public boolean isCleanFirst() {
+		return cleanFirst;
+	}
+
 	/**
 	 * Returns the value of showAllChanges.
 	 */
 	@Exported
-	public boolean isShowAllChanges() { return showAllChanges; }
+	public boolean isShowAllChanges() {
+		return showAllChanges;
+	}
+
 	/**
 	 * Returns the value of quiet.
 	 */
@@ -286,31 +308,42 @@ public class RepoScm extends SCM implements Serializable {
 	public boolean isForceSync() {
 		return forceSync;
 	}
+
 	/**
 	 * Returns the value of trace.
 	 */
 	@Exported
-	public boolean isTrace() { return trace; }
+	public boolean isTrace() {
+		return trace;
+	}
 	/**
 	 * Returns the value of noTags.
 	 */
 	@Exported
-	public boolean isNoTags() { return noTags; }
+	public boolean isNoTags() {
+		return noTags;
+	}
 	/**
 	 * Returns the value of netrcCredential.
 	 */
 	@Exported
-	public boolean getNetrcCredential() { return netrcCredential; }
+	public boolean getNetrcCredential() {
+		return netrcCredential;
+	}
 	/**
 	 * Returns the value of netrcCredentialMachine.
 	 */
 	@Exported
-	public String getNetrcCredentialMachine() { return netrcCredentialMachine; }
+	public String getNetrcCredentialMachine() {
+		return netrcCredentialMachine;
+	}
 	/**
 	 * Returns the value of netrcCredentialLogin.
 	 */
 	@Exported
-	public String getNetrcCredentialLogin() { return netrcCredentialLogin; }
+	public String getNetrcCredentialLogin() {
+		return netrcCredentialLogin;
+	}
 	/**
 	 * Returns the value of netrcCredentialPassword.
 	 */
@@ -322,7 +355,9 @@ public class RepoScm extends SCM implements Serializable {
 	 * Returns the value of customGitConfig.
 	 */
 	@Exported
-	public String getcustomGitConfig() { return customGitConfig; }
+	public String getcustomGitConfig() {
+		return customGitConfig;
+	}
 	/**
 	 *
 	 * Returns the value of sshAuthSock.
@@ -339,7 +374,20 @@ public class RepoScm extends SCM implements Serializable {
 	public String getSshAgentPid() {
 		return sshAgentPid;
 	}
-
+	/**
+	 * Returns the value of noCloneBundle.
+	 */
+	@Exported
+	public boolean isNoCloneBundle() {
+		return noCloneBundle;
+	}
+	/**
+	 * Returns the value of extraEnvVars.
+	 */
+	@Exported
+	public Map<String, String> getExtraEnvVars() {
+		return extraEnvVars;
+	}
 
 	/**
 	 * The constructor takes in user parameters and sets them. Each job using
@@ -425,6 +473,7 @@ public class RepoScm extends SCM implements Serializable {
 		setDestinationDir(destinationDir);
 		setCurrentBranch(currentBranch);
 		setResetFirst(resetFirst);
+		setCleanFirst(false);
 		setQuiet(quiet);
 		setTrace(trace);
 		setShowAllChanges(showAllChanges);
@@ -459,6 +508,7 @@ public class RepoScm extends SCM implements Serializable {
 		destinationDir = null;
 		currentBranch = false;
 		resetFirst = false;
+		cleanFirst = false;
 		quiet = false;
 		forceSync = false;
 		trace = false;
@@ -472,6 +522,7 @@ public class RepoScm extends SCM implements Serializable {
 		customGitConfig = null;
 		sshAuthSock = null;
 		sshAgentPid = null;
+		noCloneBundle = false;
 	}
 
 	/**
@@ -599,6 +650,18 @@ public class RepoScm extends SCM implements Serializable {
 	}
 
 	/**
+	 * Set cleanFirst.
+	 *
+	 * @param cleanFirst
+	 *        If this value is true, do "repo forall -c 'git clean -fdx'"
+	 *        before syncing.
+     */
+	@DataBoundSetter
+	public void setCleanFirst(final boolean cleanFirst) {
+		this.cleanFirst = cleanFirst;
+	}
+
+	/**
 	 * Set quiet.
 	 *
 	 * @param quiet
@@ -633,6 +696,18 @@ public class RepoScm extends SCM implements Serializable {
 	@DataBoundSetter
 	public void setShowAllChanges(final boolean showAllChanges) {
 		this.showAllChanges = showAllChanges;
+	}
+
+	/**
+	 * Set noCloneBundle.
+	 *
+	 * @param noCloneBundle
+	 *        If this value is true, add the "--no-clone-bundle" option when
+	 *        running the "repo init" and "repo sync" commands.
+     */
+	@DataBoundSetter
+	public void setNoCloneBundle(final boolean noCloneBundle) {
+		this.noCloneBundle = noCloneBundle;
 	}
 
 	/**
@@ -688,6 +763,7 @@ public class RepoScm extends SCM implements Serializable {
 	}
 
 	/**
+<<<<<<< HEAD
 	 * Set netrcCredential.
 	 *
 	 * @param netrcCredential
@@ -765,6 +841,17 @@ public class RepoScm extends SCM implements Serializable {
 	@Override
 	public boolean requiresWorkspaceForPolling() {
 		return false;
+	}
+
+	/**
+	 * Set additional environment variables to use. These variables will override
+	 * any parameter from the project or variable set in environment already.
+	 * @param extraEnvVars
+	 * 			  Additional environment variables to set.
+	 */
+	@DataBoundSetter
+	public void setExtraEnvVars(@CheckForNull final Map<String, String> extraEnvVars) {
+		this.extraEnvVars = extraEnvVars != null ? new EnvVars(extraEnvVars) : null;
 	}
 
 	@Override
@@ -902,7 +989,7 @@ public class RepoScm extends SCM implements Serializable {
 		}
 	}
 
-	private int doSync(final Launcher launcher, final FilePath workspace,
+	private int doSync(final Launcher launcher, @Nonnull final FilePath workspace,
 			final OutputStream logger, final EnvVars env)
 		throws IOException, InterruptedException {
 		final List<String> commands = new ArrayList<String>(4);
@@ -913,11 +1000,24 @@ public class RepoScm extends SCM implements Serializable {
 			commands.add("forall");
 			commands.add("-c");
 			commands.add("git reset --hard");
-			int syncCode = launcher.launch().stdout(logger)
+			int resetCode = launcher.launch().stdout(logger)
 				.stderr(logger).pwd(workspace).cmds(commands).envs(env).join();
 
-			if (syncCode != 0) {
+			if (resetCode != 0) {
 				debug.log(Level.WARNING, "Failed to reset first.");
+			}
+			commands.clear();
+		}
+		if (cleanFirst) {
+			commands.add(getDescriptor().getExecutable());
+			commands.add("forall");
+			commands.add("-c");
+			commands.add("git clean -fdx");
+			int cleanCode = launcher.launch().stdout(logger)
+				.stderr(logger).pwd(workspace).cmds(commands).envs(env).join();
+
+			if (cleanCode != 0) {
+				debug.log(Level.WARNING, "Failed to clean first.");
 			}
 			commands.clear();
 		}
@@ -942,19 +1042,22 @@ public class RepoScm extends SCM implements Serializable {
 		if (isNoTags()) {
 			commands.add("--no-tags");
 		}
+		if (isNoCloneBundle()) {
+			commands.add("--no-clone-bundle");
+		}
 
 		return launcher.launch().stdout(logger).pwd(workspace)
                 .cmds(commands).envs(env).join();
 	}
 
 	private boolean checkoutCode(final Launcher launcher,
-			final FilePath workspace,
+			@Nonnull final FilePath workspace,
 			final EnvVars env,
 			final OutputStream logger)
 			throws IOException, InterruptedException {
 		final List<String> commands = new ArrayList<String>(4);
 
-		debug.log(Level.INFO, "Checking out code in: " + workspace.getName());
+		debug.log(Level.INFO, "Checking out code in: {0}", workspace.getName());
 
 		commands.add(getDescriptor().getExecutable());
 		if (trace) {
@@ -985,13 +1088,16 @@ public class RepoScm extends SCM implements Serializable {
 		if (depth != 0) {
 			commands.add("--depth=" + depth);
 		}
+		if (isNoCloneBundle()) {
+			commands.add("--no-clone-bundle");
+		}
 		int returnCode =
 				launcher.launch().stdout(logger).pwd(workspace)
 						.cmds(commands).envs(env).join();
 		if (returnCode != 0) {
 			return false;
 		}
-		if (workspace != null) {
+		//{
 			FilePath rdir = workspace.child(".repo");
 			FilePath lmdir = rdir.child("local_manifests");
 			// Delete the legacy local_manifest.xml in case it exists from a previous build
@@ -1011,7 +1117,7 @@ public class RepoScm extends SCM implements Serializable {
 					lm.copyFrom(url);
 				}
 			}
-		}
+		//}
 
 		returnCode = doSync(launcher, workspace, logger, env);
 		if (returnCode != 0) {
@@ -1045,7 +1151,7 @@ public class RepoScm extends SCM implements Serializable {
 		// TODO: should we pay attention to the output from this?
 		launcher.launch().stderr(logger).stdout(output).pwd(workspace)
 				.cmds(commands).envs(env).join();
-		final String manifestText = output.toString();
+		final String manifestText = new String(output.toByteArray(), Charset.defaultCharset());
 		debug.log(Level.FINEST, manifestText);
 		return manifestText;
 	}
@@ -1063,7 +1169,7 @@ public class RepoScm extends SCM implements Serializable {
 
 		ProcessBuilder pb = new ProcessBuilder(
 				"ssh", "-p", "29418", "jenkins@" + host, "manifest",
-				"static", "-p", project, "-b", branch , "-g", group);
+				"static", "-p", project, "-b", branch, "-g", group);
 		Process process = pb.start();
 		final String stdout = output(process.getInputStream());
 		final String stderr = output(process.getErrorStream());
@@ -1089,7 +1195,8 @@ public class RepoScm extends SCM implements Serializable {
 		launcher.launch().stderr(logger).stdout(output).pwd(
 				new FilePath(workspace, ".repo/manifests"))
 				.cmds(commands).envs(env).join();
-		final String manifestText = output.toString().trim();
+		final String manifestText = new String(output.toByteArray(),
+				Charset.defaultCharset()).trim();
 		debug.log(Level.FINEST, manifestText);
 		return manifestText;
 	}
