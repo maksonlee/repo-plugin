@@ -23,9 +23,12 @@
  */
 package hudson.plugins.repo;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.URL;
@@ -33,6 +36,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +60,7 @@ import hudson.scm.PollingResult;
 import hudson.scm.SCM;
 import hudson.scm.SCMDescriptor;
 import hudson.scm.SCMRevisionState;
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.lang.StringUtils;
@@ -761,6 +766,11 @@ public class RepoScm extends SCM implements Serializable {
 	}
 
 	@Override
+	public boolean requiresWorkspaceForPolling() {
+		return false;
+	}
+
+	@Override
 	public SCMRevisionState calcRevisionsFromBuild(
 			@Nonnull final Run<?, ?> build, @Nullable final FilePath workspace,
 			@Nullable final Launcher launcher, @Nonnull final TaskListener listener
@@ -773,7 +783,7 @@ public class RepoScm extends SCM implements Serializable {
 	}
 
 	private boolean shouldIgnoreChanges(final RevisionState current, final RevisionState baseline) {
-		List<ProjectState>  changedProjects = current.whatChanged(baseline);
+		List<ProjectState> changedProjects = current.whatChanged(baseline);
 		if ((changedProjects == null) || (ignoreProjects == null)) {
 			return false;
 		}
@@ -811,26 +821,9 @@ public class RepoScm extends SCM implements Serializable {
 			}
 		}
 
-		FilePath repoDir;
-		if (destinationDir != null) {
-			repoDir = workspace.child(env.expand(destinationDir));
-		} else {
-			repoDir = workspace;
-		}
-
-		if (!repoDir.isDirectory()) {
-			repoDir.mkdirs();
-		}
-
-		if (!checkoutCode(launcher, repoDir, env, listener.getLogger())) {
-			// Some error occurred, try a build now so it gets logged.
-			return new PollingResult(myBaseline, myBaseline,
-					Change.INCOMPARABLE);
-		}
-
 		final RevisionState currentState = new RevisionState(
-				getStaticManifest(launcher, repoDir, listener.getLogger(), env),
-				getManifestRevision(launcher, repoDir, listener.getLogger(), env),
+				getStaticManifestBySshCommand(),
+				getManifestRevisionBySshCommand(),
 				expandedManifestBranch, listener.getLogger());
 
 		final Change change;
@@ -1083,6 +1076,33 @@ public class RepoScm extends SCM implements Serializable {
 		return manifestText;
 	}
 
+	private String getStaticManifestBySshCommand()
+			throws IOException, InterruptedException {
+		String tmp = manifestRepositoryUrl.split("//")[1];
+		String host = tmp.split("/")[0];
+		if (getDescriptor().getSlaves().get(host) != null) {
+			host = getDescriptor().getSlaves().get(host);
+		}
+		String project = tmp.substring(tmp.indexOf("/") + 1);
+		String branch = manifestBranch == null ? "master" : manifestBranch;
+		String group = manifestGroup == null ? "default" : manifestGroup;
+
+		ProcessBuilder pb = new ProcessBuilder(
+				"ssh", "-p", "29418", "jenkins@" + host, "manifest",
+				"static", "-p", project, "-b", branch, "-g", group);
+		Process process = pb.start();
+		final String stdout = output(process.getInputStream());
+		final String stderr = output(process.getErrorStream());
+
+		int errCode = process.waitFor();
+		if (errCode != 0) {
+			throw new IOException(stderr);
+		}
+
+		debug.log(Level.FINEST, stdout);
+		return stdout;
+	}
+
 	private String getManifestRevision(final Launcher launcher,
 			final FilePath workspace, final OutputStream logger,
 			final EnvVars env)
@@ -1101,6 +1121,32 @@ public class RepoScm extends SCM implements Serializable {
 		return manifestText;
 	}
 
+	private String getManifestRevisionBySshCommand()
+			throws IOException, InterruptedException {
+		String tmp = manifestRepositoryUrl.split("//")[1];
+		String host = tmp.split("/")[0];
+		if (getDescriptor().getSlaves().get(host) != null) {
+			host = getDescriptor().getSlaves().get(host);
+		}
+		String project = tmp.substring(tmp.indexOf("/") + 1);
+		String branch = manifestBranch == null ? "master" : manifestBranch;
+
+		ProcessBuilder pb = new ProcessBuilder(
+				"ssh", "-p", "29418", "jenkins@" + host, "manifest",
+				"reference", "-p", project, "-b", branch);
+		Process process = pb.start();
+		final String stdout = output(process.getInputStream());
+		final String stderr = output(process.getErrorStream());
+
+		int errCode = process.waitFor();
+		if (errCode != 0) {
+			throw new IOException(stderr);
+		}
+
+		debug.log(Level.FINEST, stdout);
+		return stdout;
+	}
+
 	@Nonnull
 	private SCMRevisionState getLastState(final Run<?, ?> lastBuild,
 			final String expandedManifestBranch) {
@@ -1116,6 +1162,22 @@ public class RepoScm extends SCM implements Serializable {
 		}
 		return getLastState(lastBuild.getPreviousBuild(),
 				expandedManifestBranch);
+	}
+
+	private String output(final InputStream inputStream)
+			throws IOException {
+		StringBuilder sb = new StringBuilder();
+		BufferedReader br = null;
+		try {
+			br = new BufferedReader(new InputStreamReader(inputStream));
+			String line;
+			while ((line = br.readLine()) != null) {
+				sb.append(line + System.getProperty("line.separator"));
+			}
+		} finally {
+			br.close();
+		}
+		return sb.toString().trim();
 	}
 
 	@Override
@@ -1150,6 +1212,8 @@ public class RepoScm extends SCM implements Serializable {
 	public static class DescriptorImpl extends SCMDescriptor<RepoScm> {
 		private String repoExecutable;
 
+		private Map<String, String> slaves = new HashMap();
+
 		/**
 		 * Call the superclass constructor and load our configuration from the
 		 * file system.
@@ -1157,6 +1221,13 @@ public class RepoScm extends SCM implements Serializable {
 		public DescriptorImpl() {
 			super(null);
 			load();
+		}
+
+		/**
+		 * Return slaves.
+         */
+		public Map<String, String> getSlaves() {
+			return slaves;
 		}
 
 		@Override
@@ -1170,6 +1241,24 @@ public class RepoScm extends SCM implements Serializable {
 				throws hudson.model.Descriptor.FormException {
 			repoExecutable =
 					Util.fixEmptyAndTrim(json.getString("executable"));
+
+			slaves.clear();
+			Object obj = json.get("slaves");
+			if (obj != null) {
+				JSONArray array;
+				if (obj instanceof JSONObject) {
+					array = new JSONArray();
+					array.add(obj);
+				} else {
+					array = (JSONArray) obj;
+				}
+				for (int i = 0; i < array.size(); i++) {
+					JSONObject slave = array.getJSONObject(i);
+					slaves.put(slave.getString("master"),
+							slave.getString("slave"));
+				}
+			}
+
 			save();
 			return super.configure(req, json);
 		}
@@ -1204,4 +1293,5 @@ public class RepoScm extends SCM implements Serializable {
 			return true;
 		}
 	}
+
 }
