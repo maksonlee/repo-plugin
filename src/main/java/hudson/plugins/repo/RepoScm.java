@@ -808,6 +808,10 @@ public class RepoScm extends SCM implements Serializable {
 			@Nullable final FilePath workspace, @Nonnull final TaskListener listener,
 			@Nonnull final SCMRevisionState baseline) throws IOException,
 			InterruptedException {
+		if ((manifestRepositoryUrl == null) || manifestRepositoryUrl.isEmpty()) {
+			return PollingResult.NO_CHANGES;
+		}
+
 		SCMRevisionState myBaseline = baseline;
 		final EnvVars env = getEnvVars(null, job);
 		final String expandedManifestBranch = env.expand(manifestBranch);
